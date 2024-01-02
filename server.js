@@ -4,7 +4,7 @@ const app = express();
 const cors = require("cors");
 const dotenv = require("dotenv");
 
-dotenv.config(); 
+dotenv.config();
 
 app.use(cors());
 app.use(express.static("public"));
@@ -18,7 +18,7 @@ app.get("/solar", async (req, res) => {
         .json({ message: "Missing latitude or longitude in request" });
       return;
     }
-    const apiKey = process.env.API_KEY; 
+    const apiKey = process.env.API_KEY;
     const response = await axios.get(
       `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${apiKey}`
     );

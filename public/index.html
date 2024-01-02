@@ -1,14 +1,14 @@
-
 <!DOCTYPE html>
 <html>
   <head>
     <title>Solar Panel Placement</title>
     <script>
       var map;
+      var rectangles = [];
       function initMap() {
         map = new google.maps.Map(document.getElementById('map'), {
           center: {lat: -34.397, lng: 150.644},
-          zoom: 8
+          zoom: 16
         });
       }
 
@@ -17,11 +17,13 @@
           position: latLng,
           map: map
         });
-        map.panTo(latLng);
+
+        // map.panTo(latLng);
 
         getSolarData(latLng.lat(), latLng.lng())
           .then(data => {
             if (data.error) {
+              document.getElementById("mapStatus").innerHTML = `Could not find solar details for ${latLng.lat()}, ${latLng.lng()}.`;
               alert('Solar data not found for this location');
             } else {
               displaySolarData(data);
@@ -36,14 +38,51 @@
       }
 
       function displaySolarData(data) {
+
+        // rectangles.forEach((rectangle) => )
+        rectangles = [];
+
+        // Move to new center
+        const lat = data.center.latitude;
+        const lng = data.center.longitude;
+        map.panTo(new google.maps.LatLng(lat, lng));
+
+        // Display roofSegmentStats
+        console.log("roofSegmentStats");
+        data.solarPotential.roofSegmentStats.forEach((roofSegmentStat) => {
+            const boundingBox = roofSegmentStat.boundingBox;
+            const north = boundingBox.ne.latitude;
+            const south = boundingBox.sw.latitude;
+            const west = boundingBox.sw.longitude;
+            const east = boundingBox.ne.longitude;
+
+            const rectangle = new google.maps.Rectangle({
+		    strokeColor: "#8B8000",
+		    strokeOpacity: 0.8,
+		    strokeWeight: 2,
+		    fillColor: "#FFFF00",
+		    fillOpacity: 0.35,
+		    map,
+		    bounds: {
+			north: north,
+			south: south,
+			east: east,
+			west: west,
+	 	   },
+	   });
+        });
+        console.log(data.solarPotential.roofSegmentStats);
         document.getElementById('solarData').innerHTML = JSON.stringify(data, null, 2);
+        document.getElementById("mapStatus").innerHTML = "Loaded data.";
       }
 
       function getInputCoordinates() {
         const lat = document.getElementById('latitude').value;
         const lng = document.getElementById('longitude').value;
+	document.getElementById("mapStatus").innerHTML = `Loading...`;
         placeMarkerAndPanTo(new google.maps.LatLng(lat, lng), map);
       }
+
     </script>
   </head>
   <body onload="initMap()">
@@ -51,13 +90,14 @@
     <input type="text" id="latitude" placeholder="Enter Latitude">
     <input type="text" id="longitude" placeholder="Enter Longitude">
     <button onclick="getInputCoordinates()">Submit</button>
+    <pre id="mapStatus">Hello World</pre>
     <pre id="solarData"></pre>
 
     <script>
       function loadMapScript() {
-        const API_KEY =  process.env.API_KEY;
+        const API_KEY = "<KEY>";
         const script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap';
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=initMap`;
         script.async = true;
         document.body.appendChild(script);
       }
