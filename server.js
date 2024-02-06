@@ -18,11 +18,12 @@ app.get("/solar", async (req, res) => {
         .json({ message: "Missing latitude or longitude in request" });
       return;
     }
-    const apiKey = process.env.API_KEY; 
+    const apiKey = "YOUR_API_KEY"; 
     const response = await axios.get(
       `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${apiKey}`
     );
-    if (!response.data || !response.data.solarDetails) {
+    console.log(Object.keys(response.data))
+    if (!response.data || !response.data.solarPotential) {
       res.status(404).json({ message: "Solar details not found" });
       return;
     }

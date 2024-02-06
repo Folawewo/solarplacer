@@ -1,31 +1,197 @@
-
 <!DOCTYPE html>
 <html>
   <head>
     <title>Solar Panel Placement</title>
+    <style>
+      /* The switch - the box around the slider */
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 48px;
+        height: 24px;
+      }
+
+      /* Hide default HTML checkbox */
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      /* The slider */
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        -webkit-transition: .4s;
+        transition: .4s;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        -webkit-transition: .4s;
+        transition: .4s;
+      }
+
+      input:checked + .slider {
+        background-color: #2196F3;
+      }
+
+      input:focus + .slider {
+        box-shadow: 0 0 1px #2196F3;
+      }
+
+      input:checked + .slider:before {
+        -webkit-transform: translateX(26px);
+        -ms-transform: translateX(26px);
+        transform: translateX(26px);
+      }
+
+      /* Rounded sliders */
+      .slider.round {
+        border-radius: 34px;
+      }
+
+      .slider.round:before {
+        border-radius: 50%;
+      }
+
+    .container {
+      display: flex;
+      align-items: center;
+      background-color: white;
+      padding: 8px 16px;
+      margin: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+      .controlbutton {     
+        background-color: white;
+        border: 2px solid #fff;
+        border-radius: 3px;
+        box-shadow: 0 2px 6px rgba(0,0,0,.3);
+        color: rgb(25,25,25);
+        cursor: pointer;
+        font-family: Roboto, Arial, sans-serif;
+        font-size: 16px;
+        line-height: 38px;
+        margin: 8px 0 22px;
+        padding: 0 8px;
+        text-align: center;
+      }
+
+    </style>
     <script>
-      var map;
+      var map, autocomplete, toggleButton, toggleButtonContainer;
+      var rectangles = [], roofStats = [];
       function initMap() {
         map = new google.maps.Map(document.getElementById('map'), {
           center: {lat: -34.397, lng: 150.644},
-          zoom: 8
+          zoom: 16
         });
+
+        autocomplete = new google.maps.places.Autocomplete(
+            document.getElementById("jumpTo"),
+            {}
+        );
+
+        google.maps.event.addListener(autocomplete, 'place_changed', () => {
+            let place = autocomplete.getPlace();
+
+            console.log(place); // You will get complete data
+            let lat = place.geometry.location.lat();
+            let lng = place.geometry.location.lng();
+            placeMarkerAndPanTo(new google.maps.LatLng(lat, lng), map, place.name);
+        });
+
+        const centerControlDiv = document.createElement("div");
+        const centerControl = createCenterControl(map);
+
+        // Append the control to the DIV.
+        centerControlDiv.appendChild(centerControl);
+        map.controls[google.maps.ControlPosition.TOP_CENTER].push(centerControlDiv);
       }
 
-      function placeMarkerAndPanTo(latLng, map) {
-        var marker = new google.maps.Marker({
-          position: latLng,
-          map: map
-        });
-        map.panTo(latLng);
+      function createCenterControl(map) {
+
+          toggleButtonContainer = document.createElement("div");
+          toggleButtonContainer.style.display = "none";
+          toggleButtonContainer.classList.add("container");
+
+          // Create the label element with the "switch" class
+          const labelElement = document.createElement("label");
+          labelElement.classList.add("switch");
+
+          // Create the input element with the "checkbox" type
+          toggleButton = document.createElement("input");
+          toggleButton.setAttribute("type", "checkbox");
+
+          // Create the span element with the "slider round" class
+          const spanElement = document.createElement("span");
+          spanElement.classList.add("slider", "round");
+
+          // Append the input and span elements to the label element
+          labelElement.appendChild(toggleButton);
+          labelElement.appendChild(spanElement);
+
+          // Create the span element for the text
+          const textElement = document.createElement("b");
+          textElement.style.padding = "0 12px 0 0";
+          textElement.style.fontSize = "16px";
+          textElement.textContent = "Best placement only";
+
+          // Append the label and text elements to the container div
+          toggleButtonContainer.appendChild(textElement);
+          toggleButtonContainer.appendChild(labelElement);
+
+	  const controlButton = toggleButtonContainer;
+
+	  // Set CSS for the control.
+          //controlButton.classList.add("controlbutton");
+	  //controlButton.textContent = "Center Map";
+	  //controlButton.type = "button";
+
+	  // Setup the click event listeners: simply set the map to Chicago.
+	  toggleButton.addEventListener('change', (event) => {
+                console.log("Toggled!")
+	        if (toggleButton.checked) {
+        	    rectangles.forEach((rectangle) => rectangle.setMap(null));
+		    rectangles[rectangles.length-1].setMap(map);
+	        } else {
+        	    rectangles.forEach((rectangle) => rectangle.setMap(map));
+	        }
+	  });
+	  return controlButton;
+      }
+
+      function placeMarkerAndPanTo(latLng, map, name) {
+        
+        document.getElementById("mapStatus").innerHTML = `Loading...`
+
+        // map.panTo(latLng);
 
         getSolarData(latLng.lat(), latLng.lng())
           .then(data => {
             if (data.error) {
+              document.getElementById("mapStatus").innerHTML = `Could not find solar panel details for "${name}".`;
               alert('Solar data not found for this location');
             } else {
               displaySolarData(data);
             }
+          }).catch(error => {
+              document.getElementById("mapStatus").innerHTML = `Could not find solar panel details for "${name}".`
+              console.log(error);
           });
       }
 
@@ -35,29 +201,141 @@
         return data;
       }
 
+      function calculateTransition(startColor, endColor, progress) {
+        const startRGB = hexToRgb(startColor);
+        const endRGB = hexToRgb(endColor);
+
+        const interpolatedColor = {
+          r: lerp(startRGB.r, endRGB.r, progress),
+          g: lerp(startRGB.g, endRGB.g, progress),    
+          b: lerp(startRGB.b, endRGB.b, progress)
+        };
+
+        return rgbToHex(interpolatedColor.r, interpolatedColor.g, interpolatedColor.b);
+      }
+
+      // Helper function to convert hex color to RGB
+      function hexToRgb(hex) {
+        const bigint = parseInt(hex.slice(1), 16);
+        return {
+          r: (bigint >> 16) & 255,
+          g: (bigint >> 8) & 255,
+          b: bigint & 255
+        };
+      }
+
+      // Helper function to convert RGB color to hex
+      function rgbToHex(r, g, b) {
+        return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1)}`;
+      }
+
+      // Helper function for linear interpolation
+      function lerp(start, end, progress) {
+        return start + progress * (end - start);
+      }
+
       function displaySolarData(data) {
+
+        toggleButtonContainer.style.display = "flex";
+
+        rectangles.forEach((rectangle) => rectangle.setMap(null));
+        rectangles = [];
+        roofStats = [];
+
+        // Move to new center
+        const lat = data.center.latitude;
+        const lng = data.center.longitude;
+        map.panTo(new google.maps.LatLng(lat, lng));
+        map.setZoom(18);
+
+        // Display roofSegmentStats
+        console.log("roofSegmentStats");
+
+        data.solarPotential.roofSegmentStats.forEach((roofSegmentStat) => {
+            let sunshine = roofSegmentStat.stats.sunshineQuantiles.reduce((a,b)=>{return a+b;});
+            roofSegmentStat.sunshine = sunshine;
+        })
+
+        data.solarPotential.roofSegmentStats.sort(function (statsA, statsB) {
+            return statsA.sunshine - statsB.sunshine;
+        });
+
+        let minSunshine = data.solarPotential.roofSegmentStats[0].sunshine;
+        let maxSunshine = data.solarPotential.roofSegmentStats[data.solarPotential.roofSegmentStats.length-1].sunshine;
+        let deltaSunshine = maxSunshine - minSunshine;
+
+        data.solarPotential.roofSegmentStats.forEach((roofSegmentStat) => {
+
+            let relativeSunshine = (roofSegmentStat.sunshine - minSunshine) / deltaSunshine;
+
+	    const boundingBox = roofSegmentStat.boundingBox;
+            const north = boundingBox.ne.latitude;
+            const south = boundingBox.sw.latitude;
+            const west = boundingBox.sw.longitude;
+            const east = boundingBox.ne.longitude;
+
+            const rectangle = new google.maps.Rectangle({
+		    strokeColor: calculateTransition('#6a53a6', '#FFFF00', relativeSunshine),
+		    strokeOpacity: 0.8,
+		    strokeWeight: 2,
+		    fillColor: calculateTransition('#6a53a6', '#FFFF00', relativeSunshine),
+		    fillOpacity: 0.35,
+		    map,
+		    bounds: {
+			north: north,
+			south: south,
+			east: east,
+			west: west,
+	 	   },
+	   });
+
+           rectangle.setMap(null);
+           rectangles.push(rectangle);
+        });
+
+        if (toggleButton.checked) {
+	    rectangles[rectangles.length-1].setMap(map);
+        } else {
+            rectangles.forEach((rectangle) => rectangle.setMap(map));
+        }
+
+        console.log(data.solarPotential.roofSegmentStats);
         document.getElementById('solarData').innerHTML = JSON.stringify(data, null, 2);
+        document.getElementById("mapStatus").innerHTML = "Loaded data.";
       }
 
       function getInputCoordinates() {
         const lat = document.getElementById('latitude').value;
+        if (!isFinite(lat)) {
+            document.getElementById("mapStatus").innerHTML = "Please enter a valid latitude";
+            return;
+        }
         const lng = document.getElementById('longitude').value;
-        placeMarkerAndPanTo(new google.maps.LatLng(lat, lng), map);
+        if (!isFinite(lat)) {
+            document.getElementById("mapStatus").innerHTML = "Please enter a valid longitude";
+            return;
+        }
+        placeMarkerAndPanTo(new google.maps.LatLng(lat, lng), map, `Coordinates (${lat}, ${lng})`);
       }
+
     </script>
   </head>
-  <body onload="initMap()">
-    <div id="map" style="height: 500px; width: 100%;"></div>
-    <input type="text" id="latitude" placeholder="Enter Latitude">
-    <input type="text" id="longitude" placeholder="Enter Longitude">
-    <button onclick="getInputCoordinates()">Submit</button>
-    <pre id="solarData"></pre>
+  <body>
+    <input type="text" style="width: 100%; margin: 8px 0 0 0;" id="jumpTo" placeholder="Search for places">
 
+    <div id="map" style="height: 500px; margin: 8px 0; width: 100%;"></div>
+
+    <input type="text" id="latitude" placeholder="Custom Latitude">
+    <input type="text" id="longitude" placeholder="Custom Longitude">
+    <button onclick="getInputCoordinates()">Submit</button>
+
+    <pre id="mapStatus">Hello World</pre>
+    <pre id="solarData"></pre>
     <script>
       function loadMapScript() {
-        const API_KEY =  process.env.API_KEY;
+        const API_KEY = "<KEY>";
         const script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap';
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=initMap&libraries=places`;
         script.async = true;
         document.body.appendChild(script);
       }
